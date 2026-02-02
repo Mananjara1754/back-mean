@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const productHooks = require('../hooks/productHooks');
 
 const ProductSchema = new mongoose.Schema(
     {
@@ -43,5 +44,7 @@ const ProductSchema = new mongoose.Schema(
     },
     { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );
+
+productHooks(ProductSchema);
 
 module.exports = mongoose.model('Product', ProductSchema);

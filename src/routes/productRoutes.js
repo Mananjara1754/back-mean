@@ -1,6 +1,7 @@
 const express = require('express');
 const { getProducts, getProductById, createProduct, updateProduct, deleteProduct } = require('../controllers/productController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
+const upload = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
 
@@ -98,7 +99,7 @@ router.get('/:id', getProductById);
  *       201:
  *         description: Product created
  */
-router.post('/', protect, authorize('shop', 'admin'), createProduct);
+router.post('/', protect, authorize('shop', 'admin'), upload.array('images', 5), createProduct);
 
 /**
  * @swagger
@@ -124,7 +125,7 @@ router.post('/', protect, authorize('shop', 'admin'), createProduct);
  *       200:
  *         description: Product updated
  */
-router.put('/:id', protect, authorize('shop', 'admin'), updateProduct);
+router.put('/:id', protect, authorize('shop', 'admin'), upload.array('images', 5), updateProduct);
 
 /**
  * @swagger

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const shopHooks = require('../hooks/shopHooks');
 
 const ShopSchema = new mongoose.Schema(
     {
@@ -49,5 +50,7 @@ const ShopSchema = new mongoose.Schema(
     },
     { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );
+
+shopHooks(ShopSchema);
 
 module.exports = mongoose.model('Shop', ShopSchema);
