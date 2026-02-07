@@ -44,13 +44,29 @@ const getProductById = async (req, res) => {
 // @route   POST /api/products
 // @access  Private (Shop/Admin)
 const createProduct = async (req, res) => {
-    const { name, description, category, images, price, price_history, stock, promotion, is_active } = req.body;
+    let { name, description, category, price, stock, promotion, is_active, shop_id } = req.body;
     
-    // Ensure shop_id comes from user if they are a shop, or body if admin
-    let shop_id = req.body.shop_id;
+    // Handle Shop ID
     if (req.user.role === 'shop') {
-        shop_id = req.user.shop_id; // Assuming user has shop_id, or we need to find their shop.
-        // The user model has shop_id now.
+        shop_id = req.user.shop_id;
+    }
+
+    // Handle Images
+    let images = [];
+    if (req.files && req.files.length > 0) {
+        images = req.files.map(file => file.path);
+    } else if (req.body.images) {
+        // If images are passed as string/array (e.g. existing images)
+        images = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+    }
+
+    // Parse nested objects if they are strings (FormData limitation)
+    try {
+        if (typeof price === 'string') price = JSON.parse(price);
+        if (typeof stock === 'string') stock = JSON.parse(stock);
+        if (typeof promotion === 'string') promotion = JSON.parse(promotion);
+    } catch (e) {
+        console.error('Error parsing JSON fields', e);
     }
 
     try {
@@ -61,7 +77,6 @@ const createProduct = async (req, res) => {
             category,
             images,
             price,
-            price_history,
             stock,
             promotion,
             is_active
@@ -83,19 +98,41 @@ const updateProduct = async (req, res) => {
 
         if (product) {
              // Check ownership if shop
-             if (req.user.role === 'shop' && product.shop_id.toString() !== req.user.shop_id.toString()) {
+            //  console.log("product.shop_id",product.shop_id);
+            //  console.log("req.user.shop_id",req.user.shop_id);
+             if (product.shop_id.toString() !== req.user.shop_id.toString()) {
                 return res.status(403).json({ message: 'Not authorized' });
              }
 
-            product.name = req.body.name || product.name;
-            product.description = req.body.description || product.description;
-            product.category = req.body.category || product.category;
-            product.images = req.body.images || product.images;
-            product.price = req.body.price || product.price;
-            product.price_history = req.body.price_history || product.price_history;
-            product.stock = req.body.stock || product.stock;
-            product.promotion = req.body.promotion || product.promotion;
-            product.is_active = req.body.is_active !== undefined ? req.body.is_active : product.is_active;
+            let { name, description, category, price, stock, promotion, is_active } = req.body;
+
+            // Handle Images
+            if (req.files && req.files.length > 0) {
+                const newImages = req.files.map(file => file.path);
+                product.images = [...product.images, ...newImages]; // Append new images
+            }
+            // If images field is sent (to remove/reorder), logic would be needed. 
+            // For now, let's assume images append or explicit replace if needed.
+            // But if we want to replace:
+            // product.images = req.body.images || product.images; 
+            // The logic above appends. If we want full control, we need more logic.
+
+            // Parse nested objects
+            try {
+                if (typeof price === 'string') price = JSON.parse(price);
+                if (typeof stock === 'string') stock = JSON.parse(stock);
+                if (typeof promotion === 'string') promotion = JSON.parse(promotion);
+            } catch (e) {
+                 console.error('Error parsing JSON fields', e);
+            }
+
+            product.name = name || product.name;
+            product.description = description || product.description;
+            product.category = category || product.category;
+            if (price) product.price = price;
+            if (stock) product.stock = stock;
+            if (promotion) product.promotion = promotion;
+            if (is_active !== undefined) product.is_active = is_active;
 
             const updatedProduct = await product.save();
             res.json(updatedProduct);
@@ -116,7 +153,7 @@ const deleteProduct = async (req, res) => {
 
         if (product) {
              // Check ownership if shop
-             if (req.user.role === 'shop' && product.shop_id.toString() !== req.user.shop_id.toString()) {
+             if (product.shop_id.toString() !== req.user.shop_id.toString()) {
                 return res.status(403).json({ message: 'Not authorized' });
              }
 

@@ -48,11 +48,14 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // Connect to Database
 connectDB();
 
+const path = require('path');
+
 // Middlewares
 app.use(helmet());
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -64,6 +67,7 @@ app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/promotions', require('./routes/promotionRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/categories', require('./routes/categoryProductRoutes'));
 
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to Grosserie API' });
