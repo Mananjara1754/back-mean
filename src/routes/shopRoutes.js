@@ -1,6 +1,7 @@
 const express = require('express');
-const { getShops, getShopById, createShop, updateShop, deleteShop } = require('../controllers/shopController');
+const { getShops, getShopById, createShop, updateShop, deleteShop, createShopWithUser } = require('../controllers/shopController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
+const upload = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
 
@@ -96,7 +97,7 @@ router.get('/:id', getShopById);
  *       201:
  *         description: Shop created
  */
-router.post('/', protect, authorize('shop', 'admin'), createShop);
+router.post('/', protect, authorize('shop', 'admin'), upload.single('logo'), createShop);
 
 /**
  * @swagger
@@ -122,7 +123,7 @@ router.post('/', protect, authorize('shop', 'admin'), createShop);
  *       200:
  *         description: Shop updated
  */
-router.put('/:id', protect, authorize('shop', 'admin'), updateShop);
+router.put('/:id', protect, authorize('shop', 'admin'), upload.single('logo'), updateShop);
 
 /**
  * @swagger
@@ -143,5 +144,19 @@ router.put('/:id', protect, authorize('shop', 'admin'), updateShop);
  *         description: Shop deleted
  */
 router.delete('/:id', protect, authorize('shop', 'admin'), deleteShop);
+
+/**
+ * @swagger
+ * /api/shops/with-user:
+ *   post:
+ *     summary: Create a shop with a new user
+ *     tags: [Shops]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Shop and User created
+ */
+router.post('/with-user', protect, authorize('admin'), upload.single('logo'), createShopWithUser);
 
 module.exports = router;

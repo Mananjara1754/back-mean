@@ -10,9 +10,23 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, uploadDir);
+        let folder = 'uploads/';
+        if (req.originalUrl.includes('shops')) {
+            folder += 'shops/logo/';
+        } else if (req.originalUrl.includes('products')) {
+            folder += 'products/';
+        }
+
+        if (!fs.existsSync(folder)) {
+            fs.mkdirSync(folder, { recursive: true });
+        }
+        cb(null, folder);
     },
     filename: function (req, file, cb) {
+        // If it's a shop upload and we have an ID in params (update), use it
+        if (req.params.id && req.originalUrl.includes('shops')) {
+            return cb(null, `${req.params.id}${path.extname(file.originalname)}`);
+        }
         cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
     }
 });

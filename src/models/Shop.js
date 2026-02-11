@@ -6,7 +6,7 @@ const ShopSchema = new mongoose.Schema(
         name: { type: String, required: true },
         description: { type: String },
         logo: { type: String },
-        category: { type: String },
+        category_id: { type: mongoose.Schema.Types.ObjectId, ref: 'CategoryShop' },
 
         location: {
             floor: { type: Number },
@@ -18,20 +18,13 @@ const ShopSchema = new mongoose.Schema(
         },
 
         opening_hours: {
-            monday: { open: { type: String }, close: { type: String } },
-            tuesday: { open: { type: String }, close: { type: String } },
-            // Add other days if needed, but sticking to user provided example for now or generic structure
-            // Design example only showed monday/tuesday, but usually it's full week. 
-            // I'll stick to a Map or flexible object if possible, or just defined fields.
-            // Since it's MongoDB, we can be flexible. But Mongoose needs schema.
-            // Let's define generic day structure for all days to be safe? 
-            // User example: "monday": { ... }, "tuesday": { ... }
-            // I will add all days to be comprehensive.
-            wednesday: { open: { type: String }, close: { type: String } },
-            thursday: { open: { type: String }, close: { type: String } },
-            friday: { open: { type: String }, close: { type: String } },
-            saturday: { open: { type: String }, close: { type: String } },
-            sunday: { open: { type: String }, close: { type: String } }
+            monday: { open: { type: String }, close: { type: String }, is_closed: { type: Boolean, default: false } },
+            tuesday: { open: { type: String }, close: { type: String }, is_closed: { type: Boolean, default: false } },
+            wednesday: { open: { type: String }, close: { type: String }, is_closed: { type: Boolean, default: false } },
+            thursday: { open: { type: String }, close: { type: String }, is_closed: { type: Boolean, default: false } },
+            friday: { open: { type: String }, close: { type: String }, is_closed: { type: Boolean, default: false } },
+            saturday: { open: { type: String }, close: { type: String }, is_closed: { type: Boolean, default: false } },
+            sunday: { open: { type: String }, close: { type: String }, is_closed: { type: Boolean, default: false } }
         },
 
         rent: {
