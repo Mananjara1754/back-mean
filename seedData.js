@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const CategoryProduct = require('./src/models/CategoryProduct');
+const CategoryShop = require('./src/models/CategoryShop');
 const Shop = require('./src/models/Shop');
 const Product = require('./src/models/Product');
 const User = require('./src/models/User'); // We might need a user for shop owner
@@ -124,6 +125,7 @@ const seedData = async () => {
 
         console.log('🧹 Clearing existing data (Categories, Shops, Products)...');
         await CategoryProduct.deleteMany({});
+        await CategoryShop.deleteMany({});
         await Shop.deleteMany({});
         await Product.deleteMany({});
 
@@ -136,50 +138,57 @@ const seedData = async () => {
         console.log(`📋 Found ${shopUsers.length} shop users`);
 
         console.log('🌱 Seeding Categories...');
-        const createdCategories = [];
-        for (const cat of categoriesList) {
-            const slug = cat.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
-            const newCat = await CategoryProduct.create({ ...cat, slug });
-            createdCategories.push(newCat);
-        }
-        console.log(`✅ ${createdCategories.length} categories created.`);
+        const categoryShopMap = {};
+        const categoryProductMap = {};
 
-        console.log('🌱 Seeding Shops and Products...');
-        
-        // Build category map: name -> _id
-        const categoryMap = {};
-        createdCategories.forEach(cat => {
-            categoryMap[cat.name] = cat._id;
-        });
-        
+        for (const cat of categoriesList) {
+            // Create CategoryShop
+            const newShopCat = await CategoryShop.create({
+                name: cat.name,
+                description: cat.description,
+                icon: '🛍️' // Default icon
+            });
+            categoryShopMap[cat.name] = newShopCat._id;
+
+            // Create CategoryProduct
+            const slug = cat.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+            const newProdCat = await CategoryProduct.create({
+                name: cat.name,
+                description: cat.description,
+                slug
+            });
+            categoryProductMap[cat.name] = newProdCat._id;
+        }
+        console.log(`✅ Categories created (Shop & Product).`);
+
         // Build shop-user map: lowercase shop name -> user
         const shopUserMap = {};
         shopUsers.forEach(user => {
             const userShopName = user.profile.firstname.toLowerCase().replace(/\s+/g, '');
             shopUserMap[userShopName] = user;
         });
-        
+
         let shopIndex = 0;
         for (const shopData of shopsList) {
             const shopKey = shopData.name.toLowerCase().replace(/\s+/g, '');
             const shopUser = shopUserMap[shopKey] || shopUsers[shopIndex % shopUsers.length];
-            
+
             // Create Shop
             const shop = await Shop.create({
                 name: shopData.name,
                 description: shopData.description,
-                category_id: categoryMap[shopData.category],
+                category_id: categoryShopMap[shopData.category],
                 owner_user_id: shopUser._id,
                 rent: { amount: 500, currency: 'MGA' }, // Default rent
                 location: { zone: 'A', floor: 1 } // Default location
             });
 
             console.log(`   🏠 Shop created: ${shop.name} for user ${shopUser.profile.email}`);
-            
+
             // Update Shop User with shop_id
             shopUser.shop_id = shop._id;
             await shopUser.save();
-            
+
             shopIndex++;
 
             // Create Products for this Shop
@@ -187,7 +196,7 @@ const seedData = async () => {
                 shop_id: shop._id,
                 name: prod.name,
                 description: prod.description,
-                category: shopData.category, // Assigning the shop's main category to products for simplicity
+                category_id: categoryProductMap[shopData.category], // Assigning the shop's main category to products for simplicity
                 price: {
                     current: prod.price,
                     currency: 'MGA'
