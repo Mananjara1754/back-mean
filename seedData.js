@@ -198,7 +198,8 @@ const seedData = async () => {
                 description: prod.description,
                 category_id: categoryProductMap[shopData.category], // Assigning the shop's main category to products for simplicity
                 price: {
-                    current: prod.price,
+                    current: prod.price,       // Prix HT
+                    ttc: prod.price * 1.2,     // Prix TTC (HT + 20%)
                     currency: 'MGA'
                 },
                 stock: {
