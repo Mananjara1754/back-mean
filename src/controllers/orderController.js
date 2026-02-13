@@ -17,7 +17,8 @@ const createOrder = async (req, res) => {
 
     try {
         let subtotal = 0;
-        const processedItems = [];
+        let totalVal = 0;
+        const finalItems = [];
 
         // Check stock and calculate prices
         for (const item of items) {
@@ -29,28 +30,34 @@ const createOrder = async (req, res) => {
                 return res.status(400).json({ message: `Insufficient stock for product: ${product.name}` });
             }
 
-            // Use current price from product
-            const unit_price = product.price.current;
-            const total_price = unit_price * item.quantity;
-            subtotal += total_price;
+            const unit_price = product.price.current; // HT
+            const unit_price_ttc = product.price.ttc || (unit_price * 1.2); // TTC or fallback
+            
+            const line_ht = unit_price * item.quantity;
+            const line_ttc = unit_price_ttc * item.quantity;
 
-            processedItems.push({
+            subtotal += line_ht;
+            totalVal += line_ttc;
+
+            finalItems.push({
                 product_id: product._id,
                 name: product.name,
                 quantity: item.quantity,
                 unit_price: unit_price,
-                total_price: total_price
+                unit_price_ttc: unit_price_ttc,
+                total_price: line_ht,
+                total_price_ttc: line_ttc
             });
         }
 
-        const tax = subtotal * 0.2; // Example 20% tax
-        const total = subtotal + tax;
+        const tax = totalVal - subtotal;
+        const total = totalVal;
 
         const order = new Order({
             order_number: generateOrderNumber(),
             buyer_id: req.user._id,
             shop_id,
-            items: processedItems,
+            items: finalItems,
             amounts: {
                 subtotal,
                 tax,

@@ -12,8 +12,10 @@ const OrderSchema = new mongoose.Schema(
                 product_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
                 name: { type: String, required: true },
                 quantity: { type: Number, required: true },
-                unit_price: { type: Number, required: true },
-                total_price: { type: Number, required: true }
+                unit_price: { type: Number, required: true }, // HT
+                unit_price_ttc: { type: Number }, // TTC
+                total_price: { type: Number, required: true }, // HT
+                total_price_ttc: { type: Number } // TTC
             }
         ],
 

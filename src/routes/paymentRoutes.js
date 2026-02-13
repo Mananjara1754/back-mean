@@ -6,7 +6,8 @@ const {
     getMyPayments,
     getAllPayments,
     getShopPayments,
-    downloadPaymentPDF
+    downloadPaymentPDF,
+    downloadPaymentPDFByOrder
 } = require('../controllers/paymentController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 
@@ -130,6 +131,26 @@ router.get('/:id', protect, getPaymentById);
  *         description: PDF file
  */
 router.get('/:id/download', protect, downloadPaymentPDF);
+
+/**
+ * @swagger
+ * /api/payments/order/{orderId}/download:
+ *   get:
+ *     summary: Download payment PDF by Order ID
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: PDF file
+ */
+router.get('/order/:orderId/download', protect, downloadPaymentPDFByOrder);
 
 /**
  * @swagger

@@ -264,6 +264,139 @@ const downloadPaymentPDF = async (req, res) => {
             res.status(400).json({ message: error.message });
         }
     }
+
+};
+
+/**
+ * @desc    Download payment PDF by Order ID
+ * @route   GET /api/payments/order/:orderId/download
+ * @access  Private
+ */
+const downloadPaymentPDFByOrder = async (req, res) => {
+    try {
+        const payment = await Payment.findOne({ 'reference.order_id': req.params.orderId })
+            .populate('payer.user_id', 'profile.firstname profile.lastname profile.email')
+            .populate({
+                path: 'reference.order_id',
+                populate: { path: 'shop_id', select: 'name' }
+            });
+
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment not found for this order' });
+        }
+
+        // Generate PDF (Same logic as downloadPaymentPDF)
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=invoice_${payment.reference?.order_id?.order_number || payment._id}.pdf`);
+
+        doc.pipe(res);
+
+        // ---------------- HEADER ----------------
+        doc.fillColor('#444444').fontSize(20).text('INVOICE', { align: 'right' });
+
+        const rightAlignX = 50; 
+        const rightAlignWidth = 500; 
+        let yPos = 80; 
+
+        doc.fontSize(10).fillColor('#000000')
+            .text(`Ref Payment: ${payment._id}`, rightAlignX, yPos, { width: rightAlignWidth, align: 'right' });
+
+        const orderNumber = payment.reference?.order_id?.order_number || '';
+        if (orderNumber) {
+            yPos += 15; 
+            doc.text(`Order: ${orderNumber}`, rightAlignX, yPos, { width: rightAlignWidth, align: 'right' });
+        }
+
+        yPos += 15;
+        doc.text(`Date: ${new Date(payment.paid_at || payment.created_at).toLocaleDateString()}`, rightAlignX, yPos, { width: rightAlignWidth, align: 'right' });
+
+        doc.moveDown();
+
+        // ---------------- LOGO / SHOP INFO ----------------
+        doc.fillColor('#333333').fontSize(16).text('MEAN E-Commerce', 50, 50);
+        doc.fontSize(10).text('Antananarivo, Ivandry, 101', 50, 70).moveDown();
+
+        // ---------------- CUSTOMER INFO ----------------
+        const customerName = `${payment.payer.user_id.profile?.firstname || ''} ${payment.payer.user_id.profile?.lastname || ''}`.trim() || payment.payer.user_id.username;
+
+        doc.fontSize(12).fillColor('#333333').text('Bill To:', 50, 130);
+        doc.fontSize(10).fillColor('#000000').text(customerName, 50, 145);
+        doc.text(payment.payer.user_id.profile?.email || '', 50, 160);
+
+        doc.moveTo(50, 190).lineTo(550, 190).strokeColor('#CCCCCC').stroke();
+
+        const formatAmount = (val, curr) => {
+            try {
+                const n = Number(val);
+                if (isNaN(n)) return `${val} ${curr || ''}`.trim();
+                return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n).replace(/\s/g, ' ') + (curr ? ` ${curr}` : '');
+            } catch (e) {
+                return `${val} ${curr || ''}`.trim();
+            }
+        };
+
+        // ---------------- PAYMENT SUMMARY ----------------
+        doc.fontSize(12).fillColor('#333333').text('Payment Summary', 50, 210);
+        doc.fontSize(10).text(`Method: ${String(payment.method || '').toUpperCase()}`, 50, 230);
+        doc.text(`Status: ${String(payment.status || '').toUpperCase()}`, 50, 245);
+
+        // ---------------- ITEMS TABLE ----------------
+        if (payment.payment_type === 'order' && payment.reference.order_id) {
+            const order = payment.reference.order_id;
+            doc.moveDown(2);
+            let y = 290;
+
+            doc.fillColor('#F0F0F0').rect(50, y, 500, 20).fill();
+            doc.fillColor('#333333').fontSize(10).text('Item Description', 60, y + 5);
+            doc.text('Qty', 320, y + 5, { width: 50, align: 'center' });
+            doc.text('Unit Price', 370, y + 5, { width: 80, align: 'right' });
+            doc.text('Total', 470, y + 5, { width: 80, align: 'right' });
+
+            y += 25;
+
+            doc.fillColor('#000000');
+            order.items.forEach(item => {
+                const unitPrice = item.unit_price_ttc || (item.unit_price * 1.2);
+                const totalPrice = item.total_price_ttc || (item.total_price * 1.2);
+                
+                doc.text(item.name, 60, y);
+                doc.text(item.quantity.toString(), 320, y, { width: 50, align: 'center' });
+                doc.text(formatAmount(unitPrice, order.amounts.currency), 370, y, { width: 80, align: 'right' });
+                doc.text(formatAmount(totalPrice, order.amounts.currency), 470, y, { width: 80, align: 'right' });
+                y += 20;
+            });
+
+            y += 10;
+            doc.moveTo(350, y).lineTo(550, y).strokeColor('#CCCCCC').stroke();
+            y += 10;
+
+            // Updated Summary for TTC
+            const tax = order.amounts.tax;
+            const subtotalHT = order.amounts.subtotal;
+            const totalTTC = order.amounts.total;
+
+            doc.text('Total HT:', 350, y, { width: 100 });
+            doc.text(formatAmount(subtotalHT, order.amounts.currency), 450, y, { width: 90, align: 'right' });
+            y += 15;
+            doc.text('TVA (20%):', 350, y, { width: 100 });
+            doc.text(formatAmount(tax, order.amounts.currency), 450, y, { width: 90, align: 'right' });
+            y += 20;
+
+            doc.fontSize(12).fillColor('#333333').text('TOTAL TTC:', 350, y, { width: 100, font: 'Helvetica-Bold' });
+            doc.text(formatAmount(totalTTC, order.amounts.currency), 450, y, { width: 90, align: 'right' });
+        }
+
+        doc.fontSize(10).fillColor('#999999').text('Thank you for your business!', 50, 700, { align: 'center', width: 500 });
+        doc.end();
+
+    } catch (error) {
+        console.error(error);
+        if (!res.headersSent) {
+            res.status(400).json({ message: error.message });
+        }
+    }
 };
 
 
@@ -377,5 +510,6 @@ module.exports = {
     getAllPayments,
     getShopPayments,
     getPaymentShop,
-    downloadPaymentPDF
+    downloadPaymentPDF,
+    downloadPaymentPDFByOrder
 };
