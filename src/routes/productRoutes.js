@@ -1,6 +1,6 @@
 const express = require('express');
-const { getProducts, getProductById, createProduct, updateProduct, deleteProduct } = require('../controllers/productController');
-const { protect, authorize } = require('../middlewares/authMiddleware');
+const { getProducts, getProductById, createProduct, updateProduct, deleteProduct, rateProduct, updateProductRate } = require('../controllers/productController');
+const { protect, authorize, optionalProtect } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
@@ -75,7 +75,7 @@ const router = express.Router();
  *       200:
  *         description: List of products with pagination info
  */
-router.get('/', getProducts);
+router.get('/', optionalProtect, getProducts);
 
 /**
  * @swagger
@@ -93,7 +93,7 @@ router.get('/', getProducts);
  *       200:
  *         description: Product details
  */
-router.get('/:id', getProductById);
+router.get('/:id', optionalProtect, getProductById);
 
 /**
  * @swagger
@@ -160,5 +160,9 @@ router.put('/:id', protect, authorize('shop', 'admin'), upload.array('images', 5
  *         description: Product deleted
  */
 router.delete('/:id', protect, authorize('shop', 'admin'), deleteProduct);
+
+// Rating routes
+router.post('/:id/rate', protect, rateProduct);
+router.put('/:id/rate', protect, updateProductRate);
 
 module.exports = router;

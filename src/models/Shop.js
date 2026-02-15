@@ -42,6 +42,16 @@ const ShopSchema = new mongoose.Schema(
             total_orders: { type: Number, default: 0 },
             rating: { type: Number, default: 0 }
         },
+        ratings: [
+            {
+                user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                rate: { type: Number, required: true },
+                comment: { type: String },
+                created_at: { type: Date, default: Date.now }
+            }
+        ],
+        avg_rating: { type: Number, default: 0 },
+        count_rating: { type: Number, default: 0 }
     },
     { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );

@@ -38,6 +38,7 @@ const registerUser = async (req, res) => {
                 role: user.role,
                 profile: user.profile,
                 shop_id: user.shop_id,
+                favorite_products: user.favorite_products,
                 token: generateToken(user._id),
             });
         } else {
@@ -67,6 +68,7 @@ const loginUser = async (req, res) => {
                 role: user.role,
                 profile: user.profile,
                 shop_id: user.shop_id,
+                favorite_products: user.favorite_products,
                 token: generateToken(user._id),
             });
         } else {

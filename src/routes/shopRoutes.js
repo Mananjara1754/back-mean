@@ -1,6 +1,6 @@
 const express = require('express');
-const { getShops, getShopById, createShop, updateShop, deleteShop, createShopWithUser } = require('../controllers/shopController');
-const { protect, authorize } = require('../middlewares/authMiddleware');
+const { getShops, getShopById, createShop, updateShop, deleteShop, createShopWithUser, rateShop, updateShopRate } = require('../controllers/shopController');
+const { protect, authorize, optionalProtect } = require('../middlewares/authMiddleware');
 const upload = require('../middlewares/uploadMiddleware');
 
 const router = express.Router();
@@ -63,7 +63,7 @@ const router = express.Router();
  *       200:
  *         description: List of shops
  */
-router.get('/', getShops);
+router.get('/', optionalProtect, getShops);
 
 /**
  * @swagger
@@ -83,7 +83,7 @@ router.get('/', getShops);
  *       404:
  *         description: Shop not found
  */
-router.get('/:id', getShopById);
+router.get('/:id', optionalProtect, getShopById);
 
 /**
  * @swagger
@@ -164,5 +164,9 @@ router.delete('/:id', protect, authorize('shop', 'admin'), deleteShop);
  *         description: Shop and User created
  */
 router.post('/with-user', protect, authorize('admin'), upload.single('logo'), createShopWithUser);
+
+// Rating routes
+router.post('/:id/rate', protect, rateShop);
+router.put('/:id/rate', protect, updateShopRate);
 
 module.exports = router;

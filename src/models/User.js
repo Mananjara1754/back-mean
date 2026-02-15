@@ -26,6 +26,7 @@ const UserSchema = new mongoose.Schema(
             }
         },
         shop_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', default: null },
+        favorite_products: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
         last_login: { type: Date },
     },
     { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }

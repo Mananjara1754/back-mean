@@ -1,7 +1,30 @@
 const Shop = require('../models/Shop');
 const User = require('../models/User');
+const Order = require('../models/Order');
 const fs = require('fs');
 const path = require('path');
+
+// Helper to calculate stars breakdown
+const getStarsBreakdown = (ratings) => {
+    const breakdown = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+    ratings.forEach(r => {
+        if (breakdown[r.rate] !== undefined) {
+            breakdown[r.rate]++;
+        }
+    });
+    return breakdown;
+};
+
+// Helper to check if user can rate a shop
+const checkCanRateShop = async (userId, shopId) => {
+    if (!userId) return false;
+    const order = await Order.findOne({
+        buyer_id: userId,
+        payment_status: 'paid',
+        shop_id: shopId
+    });
+    return !!order;
+};
 
 // @desc    Get all shops
 // @route   GET /api/shops
@@ -17,8 +40,17 @@ const getShops = async (req, res) => {
 
         const shops = await Shop.find(query)
             .populate('owner_user_id', 'profile.firstname profile.lastname profile.email')
-            .populate('category_id');
-        res.json(shops);
+            .populate('category_id')
+            .populate('ratings.user_id', 'profile.firstname profile.lastname');
+
+        const shopsData = await Promise.all(shops.map(async (s) => {
+            const sObj = s.toObject();
+            sObj.stars_breakdown = getStarsBreakdown(s.ratings || []);
+            sObj.can_rate = req.user ? await checkCanRateShop(req.user._id, s._id) : false;
+            return sObj;
+        }));
+
+        res.json(shopsData);
     } catch (error) {
         console.error(error);
         res.status(400).json({ message: error.message });
@@ -32,9 +64,13 @@ const getShopById = async (req, res) => {
     try {
         const shop = await Shop.findById(req.params.id)
             .populate('owner_user_id', 'profile.firstname profile.lastname profile.email')
-            .populate('category_id');
+            .populate('category_id')
+            .populate('ratings.user_id', 'profile.firstname profile.lastname');
         if (shop) {
-            res.json(shop);
+            const shopData = shop.toObject();
+            shopData.stars_breakdown = getStarsBreakdown(shop.ratings || []);
+            shopData.can_rate = req.user ? await checkCanRateShop(req.user._id, shop._id) : false;
+            res.json(shopData);
         } else {
             res.status(404).json({ message: 'Shop not found' });
         }
@@ -231,4 +267,110 @@ const createShopWithUser = async (req, res) => {
     }
 };
 
-module.exports = { getShops, getShopById, createShop, updateShop, deleteShop, createShopWithUser };
+// @desc    Add a rating to a shop
+// @route   POST /api/shops/:id/rate
+// @access  Private
+const rateShop = async (req, res) => {
+    const { rate, comment } = req.body;
+    try {
+        const shop = await Shop.findById(req.params.id);
+        if (!shop) {
+            return res.status(404).json({ message: 'Shop not found' });
+        }
+
+        const canRate = await checkCanRateShop(req.user._id, shop._id);
+        if (!canRate) {
+            return res.status(403).json({ message: 'You must pass an order in this shop before rating it' });
+        }
+
+        const existingRating = shop.ratings.find(r => r.user_id.toString() === req.user._id.toString());
+        if (existingRating) {
+            return res.status(400).json({ message: 'You have already rated this shop. Use PUT to update your rating.' });
+        }
+
+        shop.ratings.push({
+            user_id: req.user._id,
+            rate,
+            comment
+        });
+
+        shop.count_rating = shop.ratings.length;
+        shop.avg_rating = shop.ratings.reduce((acc, item) => item.rate + acc, 0) / shop.ratings.length;
+        // Keep stats.rating updated if needed
+        shop.stats.rating = shop.avg_rating;
+
+        await shop.save();
+
+        // Return rich data
+        const shopData = shop.toObject();
+        shopData.stars_breakdown = getStarsBreakdown(shop.ratings);
+        shopData.can_rate = await checkCanRateShop(req.user._id, shop._id);
+
+        // Populate user names for ratings AND other required fields for the view
+        const populatedShop = await Shop.populate(shopData, [
+            { path: 'ratings.user_id', select: 'profile.firstname profile.lastname' },
+            { path: 'owner_user_id', select: 'profile.firstname profile.lastname profile.email' },
+            { path: 'category_id' }
+        ]);
+
+        res.status(201).json(populatedShop);
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ message: error.message });
+    }
+};
+
+// @desc    Update a rating for a shop
+// @route   PUT /api/shops/:id/rate
+// @access  Private
+const updateShopRate = async (req, res) => {
+    const { rate, comment } = req.body;
+    try {
+        const shop = await Shop.findById(req.params.id);
+        if (!shop) {
+            return res.status(404).json({ message: 'Shop not found' });
+        }
+
+        const ratingIndex = shop.ratings.findIndex(r => r.user_id.toString() === req.user._id.toString());
+        if (ratingIndex === -1) {
+            return res.status(404).json({ message: 'Rating not found' });
+        }
+
+        shop.ratings[ratingIndex].rate = rate || shop.ratings[ratingIndex].rate;
+        shop.ratings[ratingIndex].comment = comment || shop.ratings[ratingIndex].comment;
+        shop.ratings[ratingIndex].created_at = Date.now();
+
+        shop.avg_rating = shop.ratings.reduce((acc, item) => item.rate + acc, 0) / shop.ratings.length;
+        shop.stats.rating = shop.avg_rating;
+
+        await shop.save();
+
+        // Return rich data
+        const shopData = shop.toObject();
+        shopData.stars_breakdown = getStarsBreakdown(shop.ratings);
+        shopData.can_rate = await checkCanRateShop(req.user._id, shop._id);
+
+        // Populate user names for ratings AND other required fields
+        const populatedShop = await Shop.populate(shopData, [
+            { path: 'ratings.user_id', select: 'profile.firstname profile.lastname' },
+            { path: 'owner_user_id', select: 'profile.firstname profile.lastname profile.email' },
+            { path: 'category_id' }
+        ]);
+
+        res.json(populatedShop);
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ message: error.message });
+    }
+};
+
+module.exports = {
+    getShops,
+    getShopById,
+    createShop,
+    updateShop,
+    deleteShop,
+    createShopWithUser,
+    rateShop,
+    updateShopRate
+};
