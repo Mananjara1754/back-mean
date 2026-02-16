@@ -46,7 +46,25 @@ const removeFavorite = async (req, res) => {
     }
 };
 
+// @desc    Get user favorites
+// @route   GET /api/users/favorites
+// @access  Private
+const getFavorites = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).populate('favorite_products');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        res.json(user.favorite_products);
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ message: error.message });
+    }
+};
+
 module.exports = {
     addFavorite,
-    removeFavorite
+    removeFavorite,
+    getFavorites
 };
