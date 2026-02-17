@@ -4,6 +4,8 @@ const {
     createPromotion,
     getPromotions,
     getPromotionById,
+    updatePromotion,
+    deletePromotion,
     trackClick
 } = require('../controllers/promotionController');
 const { protect, authorize } = require('../controllers/authController');
@@ -26,11 +28,13 @@ const { protect, authorize } = require('../controllers/authController');
  *           type: string
  *         type:
  *           type: string
- *           enum: [homepage, carousel, featured]
+ *           enum: [homepage, carousel, featured, discount]
  *         title:
  *           type: string
  *         description:
  *           type: string
+ *         discount_percent:
+ *           type: number
  *         budget:
  *           type: object
  *           properties:
@@ -93,6 +97,52 @@ router.get('/:id', getPromotionById);
  *         description: Promotion created
  */
 router.post('/', protect, authorize('shop', 'admin'), createPromotion);
+
+/**
+ * @swagger
+ * /api/promotions:
+ *   put:
+ *     summary: Update a promotion
+ *     tags: [Promotions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Promotion'
+ *     responses:
+ *       200:
+ *         description: Promotion updated
+ */
+router.put('/:id', protect, authorize('shop', 'admin'), updatePromotion);
+
+/**
+ * @swagger
+ * /api/promotions:
+ *   delete:
+ *     summary: Delete a promotion
+ *     tags: [Promotions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Promotion deleted
+ */
+router.delete('/:id', protect, authorize('shop', 'admin'), deletePromotion);
 
 /**
  * @swagger

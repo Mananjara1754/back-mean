@@ -30,8 +30,27 @@ const createOrder = async (req, res) => {
                 return res.status(400).json({ message: `Insufficient stock for product: ${product.name}` });
             }
 
-            const unit_price = product.price.current; // HT
-            const unit_price_ttc = product.price.ttc || (unit_price * 1.2); // TTC or fallback
+            let unit_price = product.price.current; // HT
+            let unit_price_ttc = product.price.ttc || (unit_price * 1.2); // TTC or fallback
+
+            let is_promo = false;
+            let original_unit_price_ttc = unit_price_ttc;
+
+            // Apply Discount if promotion is active and date is valid
+            if (product.promotion && product.promotion.is_active && product.promotion.discount_percent > 0) {
+                const now = new Date();
+                const start = product.promotion.start_date ? new Date(product.promotion.start_date) : null;
+                const end = product.promotion.end_date ? new Date(product.promotion.end_date) : null;
+
+                const isDateValid = (!start || now >= start) && (!end || now <= end);
+
+                if (isDateValid) {
+                    const discountFactor = (100 - product.promotion.discount_percent) / 100;
+                    unit_price = unit_price * discountFactor;
+                    unit_price_ttc = unit_price_ttc * discountFactor;
+                    is_promo = true;
+                }
+            }
 
             const line_ht = unit_price * item.quantity;
             const line_ttc = unit_price_ttc * item.quantity;
@@ -45,6 +64,8 @@ const createOrder = async (req, res) => {
                 quantity: item.quantity,
                 unit_price: unit_price,
                 unit_price_ttc: unit_price_ttc,
+                original_unit_price_ttc: original_unit_price_ttc,
+                is_promo: is_promo,
                 total_price: line_ht,
                 total_price_ttc: line_ttc
             });
