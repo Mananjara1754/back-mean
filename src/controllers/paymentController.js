@@ -225,10 +225,21 @@ const downloadPaymentPDF = async (req, res) => {
             // Table Body
             doc.fillColor('#000000');
             order.items.forEach(item => {
-                doc.text(item.name, 60, y);
+                const isPromo = item.is_promo;
+                const displayUnitPrice = item.unit_price_ttc || (item.unit_price * 1.2);
+
+                doc.text(item.name + (isPromo ? ' (Promotion)' : ''), 60, y);
                 doc.text(item.quantity.toString(), 320, y, { width: 50, align: 'center' });
-                doc.text(formatAmount(item.unit_price, order.amounts.currency), 370, y, { width: 80, align: 'right' });
-                doc.text(formatAmount(item.total_price, order.amounts.currency), 470, y, { width: 80, align: 'right' });
+
+                if (isPromo && item.original_unit_price_ttc) {
+                    // Show original price in small gray text? 
+                    // For now let's just show the final price to keep it "propre" as requested
+                    doc.text(formatAmount(displayUnitPrice, order.amounts.currency), 370, y, { width: 80, align: 'right' });
+                } else {
+                    doc.text(formatAmount(displayUnitPrice, order.amounts.currency), 370, y, { width: 80, align: 'right' });
+                }
+
+                doc.text(formatAmount(item.total_price_ttc || (item.total_price * 1.2), order.amounts.currency), 470, y, { width: 80, align: 'right' });
                 y += 20;
             });
 
@@ -263,11 +274,11 @@ const downloadPaymentPDF = async (req, res) => {
             doc.fillColor('#000000');
             const description = `Rent Payment for ${payment.reference.shop_id?.name || 'Shop'}`;
             const period = payment.period ? payment.period.month : '-';
-            
+
             doc.text(description, 60, y);
             doc.text(period, 320, y, { width: 80, align: 'center' });
             doc.text(formatAmount(payment.amount.value, payment.amount.currency), 470, y, { width: 80, align: 'right' });
-            
+
             y += 30;
 
             // Summary (Just Total)
@@ -320,16 +331,16 @@ const downloadPaymentPDFByOrder = async (req, res) => {
         // ---------------- HEADER ----------------
         doc.fillColor('#444444').fontSize(20).text('INVOICE', { align: 'right' });
 
-        const rightAlignX = 50; 
-        const rightAlignWidth = 500; 
-        let yPos = 80; 
+        const rightAlignX = 50;
+        const rightAlignWidth = 500;
+        let yPos = 80;
 
         doc.fontSize(10).fillColor('#000000')
             .text(`Ref Payment: ${payment._id}`, rightAlignX, yPos, { width: rightAlignWidth, align: 'right' });
 
         const orderNumber = payment.reference?.order_id?.order_number || '';
         if (orderNumber) {
-            yPos += 15; 
+            yPos += 15;
             doc.text(`Order: ${orderNumber}`, rightAlignX, yPos, { width: rightAlignWidth, align: 'right' });
         }
 
@@ -382,10 +393,11 @@ const downloadPaymentPDFByOrder = async (req, res) => {
 
             doc.fillColor('#000000');
             order.items.forEach(item => {
+                const isPromo = item.is_promo;
                 const unitPrice = item.unit_price_ttc || (item.unit_price * 1.2);
                 const totalPrice = item.total_price_ttc || (item.total_price * 1.2);
-                
-                doc.text(item.name, 60, y);
+
+                doc.text(item.name + (isPromo ? ' (Promotion)' : ''), 60, y);
                 doc.text(item.quantity.toString(), 320, y, { width: 50, align: 'center' });
                 doc.text(formatAmount(unitPrice, order.amounts.currency), 370, y, { width: 80, align: 'right' });
                 doc.text(formatAmount(totalPrice, order.amounts.currency), 470, y, { width: 80, align: 'right' });

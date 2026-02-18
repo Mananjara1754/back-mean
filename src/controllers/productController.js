@@ -191,10 +191,85 @@ const updateProduct = async (req, res) => {
 
             if (price) product.price = price;
             if (stock) product.stock = stock;
-            if (promotion) product.promotion = promotion;
+
+            // Handle Promotion Sync
+            // If promotion is being updated, we must sync with Promotion collection
+            let promotionUpdated = false;
+            if (promotion) {
+                // Check if meaningful change
+                if (JSON.stringify(product.promotion) !== JSON.stringify(promotion)) {
+                    product.promotion = promotion;
+                    promotionUpdated = true;
+                }
+            }
+
             if (is_active !== undefined) product.is_active = is_active;
 
             const updatedProduct = await product.save();
+
+            // Sync Logic: Create/Update/Delete Promotion entity based on product.promotion
+            if (promotionUpdated && promotion) {
+                const Promotion = require('../models/Promotion');
+
+                if (promotion.is_active) {
+                    // 1. Product has active promo -> Ensure Promotion entity exists
+
+                    // Try to find a promotion that contains ONLY this product (single-product promo)
+                    // We look for type 'discount' which we used for auto-generated ones, or just any that has this product?
+                    // Actually, if we are turning it ON from here, we assume we want a Single Product Promo.
+                    // If it's ALREADY part of a big campaign, we might be overwriting it?
+                    // "Senior" approach: 
+                    // - If product is already in a Promotion, updating it here updates THAT promotion? 
+                    //   BUT a product can be in a multi-product promo. Changing "discount" here would imply changing it for just this product.
+                    //   Since our system sets discount on Promotion (global), not per product in the link...
+                    //   We should probably detach it from the Multi-Product Promo and create a new Single-Product Promo.
+
+                    // Step A: Find any existing promotion with this product
+                    const existingPromos = await Promotion.find({ product_ids: product._id });
+
+                    // We remove it from ALL existing promotions to avoid conflicts (last write wins strategy)
+                    for (const promo of existingPromos) {
+                        promo.product_ids = promo.product_ids.filter(id => id.toString() !== product._id.toString());
+                        if (promo.product_ids.length === 0) {
+                            // If it was the only product, delete the promo (cleanup)
+                            await promo.deleteOne();
+                        } else {
+                            await promo.save();
+                        }
+                    }
+
+                    // Step B: Create new Single Product Promotion
+                    // Use new discount/dates
+                    const newPromo = new Promotion({
+                        shop_id: product.shop_id,
+                        type: 'discount',
+                        title: `Promo: ${product.name}`,
+                        description: 'Generated from Product Management',
+                        image: product.images && product.images[0] ? product.images[0] : '',
+                        product_ids: [product._id],
+                        discount_percent: promotion.discount_percent,
+                        start_date: promotion.start_date || new Date(),
+                        end_date: promotion.end_date || new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+                        budget: { amount: 0, currency: 'MGA' },
+                        is_active: true
+                    });
+
+                    await newPromo.save();
+
+                } else {
+                    // 2. Product promo deactivated -> Remove from Promotion entities
+                    const existingPromos = await Promotion.find({ product_ids: product._id });
+                    for (const promo of existingPromos) {
+                        promo.product_ids = promo.product_ids.filter(id => id.toString() !== product._id.toString());
+                        if (promo.product_ids.length === 0) {
+                            await promo.deleteOne();
+                        } else {
+                            await promo.save();
+                        }
+                    }
+                }
+            }
+
             res.json(updatedProduct);
         } else {
             res.status(404).json({ message: 'Product not found' });

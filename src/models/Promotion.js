@@ -6,13 +6,14 @@ const PromotionSchema = new mongoose.Schema(
 
         type: {
             type: String,
-            enum: ['homepage', 'carousel', 'featured'],
+            enum: ['homepage', 'carousel', 'featured', 'discount'],
             required: true
         },
 
         title: { type: String, required: true },
         description: { type: String },
         image: { type: String },
+        discount_percent: { type: Number, default: 0 },
 
         product_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
 

@@ -13,7 +13,9 @@ const OrderSchema = new mongoose.Schema(
                 name: { type: String, required: true },
                 quantity: { type: Number, required: true },
                 unit_price: { type: Number, required: true }, // HT
-                unit_price_ttc: { type: Number }, // TTC
+                unit_price_ttc: { type: Number }, // TTC (After discount)
+                original_unit_price_ttc: { type: Number }, // TTC (Before discount)
+                is_promo: { type: Boolean, default: false },
                 total_price: { type: Number, required: true }, // HT
                 total_price_ttc: { type: Number } // TTC
             }
