@@ -75,6 +75,7 @@ app.use('/api/categories', require('./routes/categoryProductRoutes'));
 app.use('/api/category-shops', require('./routes/categoryShopRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/admin/statistics', require('./routes/statisticRoutes'));
+app.use('/api/shop/statistics', require('./routes/shopStatisticRoutes'));
 
 
 const { errorHandler } = require('./middlewares/errorMiddleware');
