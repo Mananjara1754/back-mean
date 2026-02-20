@@ -1,3 +1,7 @@
 node_modules
 ind
 uploads
+
+# Environment files - NEVER commit these
+.env
+.env.*
